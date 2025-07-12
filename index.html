@@ -2,85 +2,85 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Magnetic Disk + Flower of Life</title>
-  <style> body { margin:0; overflow:hidden; } canvas { display:block; } </style>
+  <title>3D Magnetic Disk</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
+  </style>
 </head>
 <body>
-<script type="module">
-  import * as THREE from 'https://unpkg.com/three/build/three.module.js';
-  import { OrbitControls } from 'https://unpkg.com/three/examples/jsm/controls/OrbitControls.js';
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r150/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/controls/OrbitControls.js"></script>
+  <script>
+    // Scene
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000);
 
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x000000);
-  const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 1000);
-  camera.position.set(0,5,10);
-  const renderer = new THREE.WebGLRenderer({antialias:true});
-  renderer.setSize(innerWidth, innerHeight);
-  document.body.appendChild(renderer.domElement);
+    // Camera
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 3, 8);
 
-  const controls = new OrbitControls(camera, renderer.domElement);
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
 
-  // Disk
-  const disk = new THREE.Mesh(
-    new THREE.CylinderGeometry(2,2,0.3,64),
-    new THREE.MeshStandardMaterial({ color:0x3333ff, metalness:0.6, roughness:0.2, transparent:true, opacity:0.8 })
-  );
-  scene.add(disk);
+    // Controls
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
 
-  // Field lines
-  const fieldLines = new THREE.Group();
-  const mat = new THREE.LineBasicMaterial({color:0x00ffff, linewidth:1});
-  function mkField(rad,h) {
-    for(let a=0;a<Math.PI*2;a+=Math.PI/16){
-      const pts = [];
-      for(let i=0;i<=100;i++){
-        const t=i/100, theta = t*Math.PI, r = rad*Math.sin(theta);
-        pts.push(new THREE.Vector3(r*Math.cos(a), h*(1-2*t), r*Math.sin(a)));
+    // Magnetic Disk (cylinder)
+    const diskGeometry = new THREE.CylinderGeometry(2, 2, 0.3, 64);
+    const diskMaterial = new THREE.MeshStandardMaterial({ color: 0x3333ff, metalness: 0.6, roughness: 0.2 });
+    const disk = new THREE.Mesh(diskGeometry, diskMaterial);
+    scene.add(disk);
+
+    // Lighting
+    const light1 = new THREE.PointLight(0xffffff, 1);
+    light1.position.set(5, 5, 5);
+    scene.add(light1);
+    scene.add(new THREE.AmbientLight(0x404040));
+
+    // Magnetic field lines
+    const curveMaterial = new THREE.LineBasicMaterial({ color: 0x00ffff });
+
+    function createMagneticField(radius, height) {
+      const lines = new THREE.Group();
+      for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 16) {
+        const points = [];
+        const segments = 100;
+        for (let i = 0; i < segments; i++) {
+          const t = i / segments;
+          const theta = t * Math.PI;
+          const r = radius * Math.sin(theta);
+          const x = r * Math.cos(angle);
+          const y = height * (1 - 2 * t); // from +height to -height
+          const z = r * Math.sin(angle);
+          points.push(new THREE.Vector3(x, y, z));
+        }
+        const curve = new THREE.CatmullRomCurve3(points);
+        const geometry = new THREE.BufferGeometry().setFromPoints(curve.getPoints(100));
+        const line = new THREE.Line(geometry, curveMaterial);
+        lines.add(line);
       }
-      const curve = new THREE.CatmullRomCurve3(pts);
-      fieldLines.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(200)), mat));
+      return lines;
     }
-  }
-  mkField(3.5,3);
-  scene.add(fieldLines);
 
-  // Flower of Life overlay
-  const flor = new THREE.Group();
-  const circles = 8;
-  const step = Math.PI*2/circles;
-  const center = new THREE.Vector3(0, 0.16, 0);
-  const radius = 1;
-  for(let i=0;i<circles;i++){
-    const ring = new THREE.LineLoop(
-      new THREE.CircleGeometry(radius, 64),
-      new THREE.MeshBasicMaterial({color:0xffcc00, transparent:true, opacity:0.5})
-    );
-    ring.rotation.x = Math.PI/2;
-    ring.position.copy(center.clone().applyAxisAngle(new THREE.Vector3(0,1,0), i*step));
-    flor.add(ring);
-  }
-  // Add overlapping rings for deeper pattern
-  flor.children.forEach(r=>r.clone() && flor.add(r.clone().rotateOnAxis(new THREE.Vector3(0,1,0),step/2)));
-  scene.add(flor);
+    const fieldLines = createMagneticField(3.5, 3);
+    scene.add(fieldLines);
 
-  // Lights
-  scene.add(new THREE.AmbientLight(0x404040));
-  const p = new THREE.PointLight(0xffffff,1);
-  p.position.set(5,5,5);
-  scene.add(p);
+    // Animate
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+      controls.update();
+    }
+    animate();
 
-  window.addEventListener('resize', ()=>{
-    camera.aspect = innerWidth/innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(innerWidth, innerHeight);
-  });
-
-  function animate(){
-    requestAnimationFrame(animate);
-    renderer.render(scene, camera);
-    controls.update();
-  }
-  animate();
-</script>
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
 </body>
 </html>
